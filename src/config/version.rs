@@ -5,11 +5,13 @@ use std::{
 
 use crate::error::VersionError;
 
+/// Identifies the type of Minecraft distribution supported by the configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MinecraftType {
     Vanilla,
 }
 
+/// Semantic release version parsed from strings like `1.20.4`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Version {
     pub major: u32,
@@ -17,6 +19,7 @@ pub struct Version {
     pub patch: u32,
 }
 
+/// Snapshot version parsed from strings like `23w13b`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Snapshot {
     pub year: u32,
@@ -24,22 +27,11 @@ pub struct Snapshot {
     pub build: char,
 }
 
+/// Enum covering both release and snapshot Minecraft version formats.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MinecraftVersion {
     Release(Version),
     Snapshot(Snapshot),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum StreamSource {
-    Stdout,
-    Stderr,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StreamLine {
-    line: String,
-    source: StreamSource,
 }
 
 impl Display for Version {
@@ -134,34 +126,5 @@ impl FromStr for MinecraftVersion {
         }
 
         Err(VersionError::UnknownVersionFormat(s.to_string()))
-    }
-}
-
-impl StreamLine {
-    pub fn new<S: Into<String>>(line: S, source: StreamSource) -> Self {
-        Self {
-            line: line.into(),
-            source,
-        }
-    }
-
-    pub fn stdout<S: Into<String>>(line: S) -> Self {
-        Self {
-            line: line.into(),
-            source: StreamSource::Stdout,
-        }
-    }
-
-    pub fn stderr<S: Into<String>>(line: S) -> Self {
-        Self {
-            line: line.into(),
-            source: StreamSource::Stderr,
-        }
-    }
-}
-
-impl Display for StreamLine {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.line)
     }
 }
