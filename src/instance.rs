@@ -1,8 +1,11 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
+
+use tokio::sync::broadcast;
+use tokio_stream::wrappers::BroadcastStream;
 
 use crate::{
-    config::{MinecraftType, MinecraftVersion},
-    error::HandleError,
+    config::{MinecraftType, MinecraftVersion, StreamLine, StreamType},
+    error::{HandleError, SubscribeError},
 };
 
 #[derive(Debug, Clone)]
@@ -26,6 +29,8 @@ pub enum InstanceStatus {
 pub struct InstanceHandle {
     pub data: InstanceData,
     pub status: InstanceStatus,
+    stdout_tx: Option<broadcast::Sender<StreamLine>>,
+    stderr_tx: Option<broadcast::Sender<StreamLine>>,
 }
 
 impl InstanceHandle {
@@ -58,6 +63,33 @@ impl InstanceHandle {
         };
 
         let status = InstanceStatus::Stopped;
-        Ok(Self { data, status })
+        Ok(Self {
+            data,
+            status,
+            stdout_tx: None,
+            stderr_tx: None,
+        })
+    }
+
+    pub fn subscribe(
+        &self,
+        stream: StreamType,
+    ) -> Result<BroadcastStream<StreamLine>, SubscribeError> {
+        match stream {
+            StreamType::Stdout => {
+                let rx = match &self.stdout_tx {
+                    Some(value) => value.subscribe(),
+                    None => return Err(SubscribeError::NoStdout),
+                };
+                Ok(BroadcastStream::new(rx))
+            }
+            StreamType::Stderr => {
+                let rx = match &self.stderr_tx {
+                    Some(value) => value.subscribe(),
+                    None => return Err(SubscribeError::NoStdout),
+                };
+                Ok(BroadcastStream::new(rx))
+            }
+        }
     }
 }

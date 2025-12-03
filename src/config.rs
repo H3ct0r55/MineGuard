@@ -30,6 +30,18 @@ pub enum MinecraftVersion {
     Snapshot(Snapshot),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StreamType {
+    Stdout,
+    Stderr,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StreamLine {
+    source: StreamType,
+    val: String,
+}
+
 impl Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}.{}.{}", self.major, self.minor, self.patch)

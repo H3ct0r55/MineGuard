@@ -57,4 +57,10 @@ pub enum HandleError {
     InvalidPathJAR(String),
 }
 
+#[derive(Debug, Clone, Error)]
+pub enum SubscribeError {
+    #[error("No stdout found")]
+    NoStdout,
+}
+
 type Result<T> = std::result::Result<T, Error>;
