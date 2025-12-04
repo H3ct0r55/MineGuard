@@ -233,12 +233,9 @@ impl InstanceHandle {
                         break;
                     }
                     maybe_cmd = stdin_rx.recv() => {
-                        match maybe_cmd {
-                            Some(cmd) => {
-                                _ = writer.write_all(cmd.as_bytes()).await;
-                                _ = writer.flush().await;
-                            },
-                            _ => (),
+                        if let Some(cmd) = maybe_cmd {
+                            _ = writer.write_all(cmd.as_bytes()).await;
+                            _ = writer.flush().await;
                         }
                     }
                 }
@@ -269,21 +266,13 @@ impl InstanceHandle {
                             break;
                         }
                         line = rx.next() => {
-                            match line {
-                                Some(Ok(val)) => {
-                                    let msg = val.msg();
-                                    let meta = LogMeta::new(msg);
-                                    match meta {
-                                        Ok(val) => {
-                                            if val.is_some() {
-                                                println!("{}", val.unwrap());
-                                            }
-                                        }
-                                        Err(_) => (),
-
+                            if let Some(Ok(val)) = line {
+                                let msg = val.msg();
+                                let meta = LogMeta::new(msg);
+                                if let Ok(val) = meta
+                                    && val.is_some() {
+                                        println!("{}", val.unwrap());
                                     }
-                                },
-                                _ => (),
                             }
                         }
                     }
