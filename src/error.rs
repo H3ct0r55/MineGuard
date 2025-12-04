@@ -92,3 +92,10 @@ pub enum ServerError {
     #[error("Failed to write to stdin")]
     StdinWriteFailed,
 }
+
+#[cfg(feature = "events")]
+#[derive(Debug, Clone, Error)]
+pub enum ParserError {
+    #[error("ParserError")]
+    ParserError,
+}

@@ -74,7 +74,7 @@ impl InstanceHandle {
             root_dir: root,
             jar_path: path,
             mc_version: parsed_version,
-            mc_type: mc_type,
+            mc_type,
         };
 
         let status = InstanceStatus::Stopped;
@@ -248,32 +248,48 @@ impl InstanceHandle {
         Ok(())
     }
 
-    #[cfg(feature = "events")]
+    #[cfg(all(feature = "events", any(feature = "mc-vanilla")))]
     fn setup_parser(&mut self) -> Result<(), ServerError> {
         let stdout_stream = self
             .subscribe(StreamSource::Stdout)
             .map_err(|_| ServerError::NoStdoutPipe)?;
         let shutdown = self.shutdown.clone();
-        let event_tx = self.events_tx.clone();
+        // TODO: Stream events!!!!
+        let _event_tx = self.events_tx.clone();
 
-        tokio::spawn(async move {
-            let mut rx = stdout_stream;
+        #[cfg(feature = "mc-vanilla")]
+        if self.data.mc_type == MinecraftType::Vanilla {
+            use crate::config::LogMeta;
+            tokio::spawn(async move {
+                let mut rx = stdout_stream;
 
-            loop {
-                tokio::select! {
-                    _ = shutdown.cancelled() => {
-                        break;
-                    }
-                    line = rx.next() => {
-                        match line {
-                            Some(Ok(_)) => {
-                            },
-                            _ => (),
+                loop {
+                    tokio::select! {
+                        _ = shutdown.cancelled() => {
+                            break;
+                        }
+                        line = rx.next() => {
+                            match line {
+                                Some(Ok(val)) => {
+                                    let msg = val.msg();
+                                    let meta = LogMeta::new(msg);
+                                    match meta {
+                                        Ok(val) => {
+                                            if val.is_some() {
+                                                println!("{}", val.unwrap());
+                                            }
+                                        }
+                                        Err(_) => (),
+
+                                    }
+                                },
+                                _ => (),
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
         Ok(())
     }
 
