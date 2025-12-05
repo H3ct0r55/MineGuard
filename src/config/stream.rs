@@ -1,7 +1,15 @@
 use std::fmt::{self, Display};
 
+#[cfg(feature = "events")]
+use chrono::{DateTime, Utc};
+use chrono::{Local, NaiveTime, TimeZone};
+use regex::Regex;
+#[cfg(feature = "events")]
+use uuid::Uuid;
+
 #[cfg(feature = "mc-vanilla")]
 use crate::error::ParserError;
+use crate::instance::InstanceStatus;
 
 /// Identifies which process stream produced a line of output.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,12 +27,6 @@ pub struct StreamLine {
     source: StreamSource,
 }
 
-#[cfg(feature = "events")]
-pub struct InstanceEvent {}
-
-#[cfg(feature = "events")]
-pub enum Events {}
-
 #[cfg(feature = "mc-vanilla")]
 pub struct LogMeta {
     time: String,
@@ -39,6 +41,28 @@ pub enum LogLevel {
     Warn,
     Error,
     Other,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EventPayload {
+    #[cfg(feature = "events")]
+    StateChange {
+        old: InstanceStatus,
+        new: InstanceStatus,
+    },
+
+    StdLine {
+        line: StreamLine,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstanceEvent {
+    pub id: Uuid,
+
+    pub timestamp: DateTime<Utc>,
+
+    pub payload: EventPayload,
 }
 
 #[cfg(feature = "mc-vanilla")]
@@ -145,10 +169,78 @@ impl StreamLine {
     pub fn msg(&self) -> String {
         self.line.clone()
     }
+
+    pub fn extract_timestamp(&self) -> Option<DateTime<Utc>> {
+        let input = self.line.as_str();
+        let re = Regex::new(r"\[(.*?)\]").unwrap();
+        let time_s = re.captures(input).map(|v| v[1].to_string());
+        if time_s.is_none() {
+            return None;
+        }
+        let time = NaiveTime::parse_from_str(&time_s.unwrap(), "%H:%M:%S").ok()?;
+
+        let today = Local::now().date_naive();
+        let naive_dt = today.and_time(time);
+
+        let local_dt = Local.from_local_datetime(&naive_dt).unwrap();
+
+        let utc_dt = local_dt.with_timezone(&Utc);
+
+        Some(utc_dt)
+    }
+}
+
+impl InstanceEvent {
+    pub fn stdout<S: Into<String>>(line: S) -> Self {
+        let line = line.into();
+        let s_line = StreamLine::stdout(line);
+        let timestamp = s_line.extract_timestamp().unwrap_or(Utc::now());
+        let payload = EventPayload::StdLine { line: s_line };
+
+        Self {
+            id: Uuid::new_v4(),
+            timestamp,
+            payload,
+        }
+    }
+    pub fn stderr<S: Into<String>>(line: S) -> Self {
+        let line = line.into();
+        let s_line = StreamLine::stderr(line);
+        let timestamp = s_line.extract_timestamp().unwrap_or(Utc::now());
+        let payload = EventPayload::StdLine { line: s_line };
+
+        Self {
+            id: Uuid::new_v4(),
+            timestamp,
+            payload,
+        }
+    }
 }
 
 impl Display for StreamLine {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.line)
+    }
+}
+
+impl Display for InstanceEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let head = format!(
+            "UUID: {}\nTimestamp:{}\nPayload:\n",
+            self.id.to_string(),
+            self.timestamp.to_string()
+        );
+        match self.payload.clone() {
+            EventPayload::StdLine { line } => {
+                let full = format!("{}{}", head, line);
+                write!(f, "{}", full)
+            }
+
+            #[cfg(feature = "events")]
+            EventPayload::StateChange { old, new } => {
+                let full = format!("{}State changed: {:?} -> {:?}", head, old, new);
+                write!(f, "{}", full)
+            }
+        }
     }
 }

@@ -1,5 +1,6 @@
 use std::{path::PathBuf, process::Stdio, sync::Arc};
 
+use chrono::Utc;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
     process::{self, Child},
@@ -7,9 +8,12 @@ use tokio::{
 };
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 
+#[cfg(feature = "events")]
+use crate::config::stream::InstanceEvent;
 use crate::{
-    config::{MinecraftType, MinecraftVersion, StreamLine, StreamSource},
+    config::{MinecraftType, MinecraftVersion, StreamLine, StreamSource, stream::EventPayload},
     error::{HandleError, ServerError, SubscribeError},
 };
 
@@ -38,10 +42,14 @@ pub enum InstanceStatus {
 pub struct InstanceHandle {
     pub data: InstanceData,
     pub status: Arc<RwLock<InstanceStatus>>,
-    stdout_tx: broadcast::Sender<StreamLine>,
-    stderr_tx: Option<broadcast::Sender<StreamLine>>,
+    stdout_tx: broadcast::Sender<InstanceEvent>,
+    stderr_tx: Option<broadcast::Sender<InstanceEvent>>,
     #[cfg(feature = "events")]
-    events_tx: broadcast::Sender<StreamLine>,
+    events_tx: broadcast::Sender<InstanceEvent>,
+    #[cfg(feature = "events")]
+    internal_tx: mpsc::Sender<InstanceEvent>,
+    #[cfg(feature = "events")]
+    internal_rx: Option<mpsc::Receiver<InstanceEvent>>,
     stdin_tx: mpsc::Sender<String>,
     stdin_rx: Option<mpsc::Receiver<String>>,
     child: Option<Arc<RwLock<Child>>>,
@@ -80,6 +88,7 @@ impl InstanceHandle {
         let status = InstanceStatus::Stopped;
 
         let (stdin_tx, stdin_rx) = mpsc::channel(1024);
+        let (internal_tx, internal_rx) = mpsc::channel(1024);
         Ok(Self {
             data,
             status: Arc::new(RwLock::new(status)),
@@ -87,6 +96,10 @@ impl InstanceHandle {
             stderr_tx: None,
             #[cfg(feature = "events")]
             events_tx: broadcast::Sender::new(2048),
+            #[cfg(feature = "events")]
+            internal_tx,
+            #[cfg(feature = "events")]
+            internal_rx: Some(internal_rx),
             stdin_tx,
             stdin_rx: Some(stdin_rx),
             child: None,
@@ -134,9 +147,25 @@ impl InstanceHandle {
     }
 
     async fn transition_status(&self, status: InstanceStatus) {
+        let r_guard = self.status.read().await;
+        let old = r_guard.clone();
+        drop(r_guard);
+
+        let new = status.clone();
+
         let mut guard = self.status.write().await;
         *guard = status;
         drop(guard);
+
+        let event = InstanceEvent {
+            id: Uuid::new_v4(),
+
+            timestamp: Utc::now(),
+
+            payload: EventPayload::StateChange { old, new },
+        };
+
+        self.internal_tx.send(event);
     }
 
     fn build_start_command(&self) -> process::Command {
@@ -179,7 +208,7 @@ impl InstanceHandle {
             loop {
                 match stdout_reader.next_line().await {
                     Ok(Some(line)) => {
-                        let _ = stdout_tx.send(StreamLine::stdout(line));
+                        let _ = stdout_tx.send(InstanceEvent::stdout(line));
                     }
                     _ => {
                         let status_guard = stdout_status.read().await;
@@ -203,7 +232,7 @@ impl InstanceHandle {
             loop {
                 match stderr_reader.next_line().await {
                     Ok(Some(line)) => {
-                        let _ = stderr_tx.send(StreamLine::stderr(line));
+                        let _ = stderr_tx.send(InstanceEvent::stderr(line));
                     }
                     _ => {
                         let status_guard = stderr_status.read().await;
@@ -267,12 +296,8 @@ impl InstanceHandle {
                         }
                         line = rx.next() => {
                             if let Some(Ok(val)) = line {
-                                let msg = val.msg();
-                                let meta = LogMeta::new(msg);
-                                if let Ok(val) = meta
-                                    && val.is_some() {
-                                        println!("{}", val.unwrap());
-                                    }
+
+                                println!("{}", val);
                             }
                         }
                     }
@@ -319,7 +344,7 @@ impl InstanceHandle {
     pub fn subscribe(
         &self,
         stream: StreamSource,
-    ) -> Result<BroadcastStream<StreamLine>, SubscribeError> {
+    ) -> Result<BroadcastStream<InstanceEvent>, SubscribeError> {
         match stream {
             StreamSource::Stdout => {
                 let rx = self.stdout_tx.subscribe();
