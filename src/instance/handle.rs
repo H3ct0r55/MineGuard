@@ -290,10 +290,11 @@ impl InstanceHandle {
             .map_err(|_| ServerError::NoStdoutPipe)?;
         let shutdown1 = self.shutdown.clone();
         let shutdown2 = self.shutdown.clone();
-        let _event_tx = self.events_tx.clone();
+        let event_tx = self.events_tx.clone();
 
         if let Some(mut internal_rx) = self.internal_rx.take() {
             tokio::spawn(async move {
+                let tx = event_tx;
                 loop {
                     tokio::select! {
                         _ = shutdown1.cancelled() => {
@@ -302,7 +303,7 @@ impl InstanceHandle {
 
                         maybe_event = internal_rx.recv() => {
                             if let Some(event) = maybe_event {
-                                println!("event: {}", event);
+                                _ = tx.send(event);
                             }
                         }
                     }
@@ -322,8 +323,7 @@ impl InstanceHandle {
                         }
                         line = rx.next() => {
                             if let Some(Ok(val)) = line {
-
-                                println!("{}", val);
+                                // TODO: Call parser
                             }
                         }
                     }

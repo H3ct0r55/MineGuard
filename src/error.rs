@@ -99,3 +99,22 @@ pub enum ParserError {
     #[error("ParserError")]
     ParserError,
 }
+
+#[derive(Debug, Clone, Error)]
+pub enum CreationError {
+    #[error("CreationError")]
+    CreationError,
+
+    #[error("Invalid directory")]
+    DirectoryError,
+}
+#[derive(Debug, Clone, Error)]
+pub enum ManifestError {
+    #[error("ManifestError")]
+    ManifestError,
+
+    #[error("Failed to load mainfest")]
+    LoadUrlError,
+    #[error("Failed to parse manifest json")]
+    JsonParseError,
+}

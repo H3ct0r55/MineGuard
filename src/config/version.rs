@@ -3,6 +3,8 @@ use std::{
     str::FromStr,
 };
 
+use tokio::sync::watch;
+
 use crate::error::VersionError;
 
 /// Identifies the type of Minecraft distribution supported by the configuration.
@@ -43,6 +45,15 @@ impl Display for Version {
 impl Display for Snapshot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}w{:02}{}", self.year, self.week, self.build)
+    }
+}
+
+impl Display for MinecraftVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MinecraftVersion::Release(version) => write!(f, "{}", version.to_string()),
+            MinecraftVersion::Snapshot(snapshot) => write!(f, "{}", snapshot.to_string()),
+        }
     }
 }
 
