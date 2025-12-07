@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 960 288" version="1.1" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><style>
+  :root { color-scheme: light dark; }
+  #Candi2 { fill: #000000; }
+  @media (prefers-color-scheme: dark) {
+    #Candi2 { fill: #ffffff; }
+  }
+</style><rect id="Artboard1" x="0" y="0" width="960" height="288" style="fill:none;" /><path id="Candi2" d="M572.408,105.247l-0,50.499c-0,27.084 -58.055,74.003 -92.408,84.254c-34.353,-10.25 -92.408,-57.17 -92.408,-84.254l-0,-107.746l38.689,0l45.705,45.705l45.705,-45.705l54.715,0l-0,43.383l-27.358,0l0,-16.026l-16.026,-0l-57.037,57.037l-57.037,-57.037l0,79.563c0.096,2.885 9.718,14.902 14.778,20.045c14.344,14.58 34.069,28.878 50.272,35.919c16.203,-7.041 35.928,-21.339 50.272,-35.919c5.06,-5.143 14.683,-17.16 14.778,-20.045l0,-22.526l-45.705,0l27.147,-27.147l45.915,0Z" /></svg>
