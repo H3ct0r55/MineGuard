@@ -107,6 +107,15 @@ pub enum CreationError {
 
     #[error("Invalid directory")]
     DirectoryError,
+
+    #[error("Failed to parse manifest")]
+    ManifestError,
+
+    #[error("Version does not exist")]
+    VersionError,
+
+    #[error("Network Error")]
+    NetworkError,
 }
 #[derive(Debug, Clone, Error)]
 pub enum ManifestError {

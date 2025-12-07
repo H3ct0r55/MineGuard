@@ -41,24 +41,26 @@ pub struct InstanceHandle {
 
 impl InstanceHandle {
     pub fn new_with_params(
-        root_dir: &str,
-        jar_path: &str,
-        mc_version: &str,
+        root_dir: PathBuf,
+        jar_path: PathBuf,
+        mc_version: MinecraftVersion,
         mc_type: MinecraftType,
     ) -> Result<Self, HandleError> {
-        let parsed_version: MinecraftVersion = mc_version
-            .parse()
-            .map_err(|_| HandleError::InvalidVersion(mc_version.to_string()))?;
+        let parsed_version: MinecraftVersion = mc_version;
 
-        let root: PathBuf = root_dir.into();
+        let root: PathBuf = root_dir.clone().into();
         if !root.exists() || !root.is_dir() {
-            return Err(HandleError::InvalidDirectory(root_dir.to_string()));
+            return Err(HandleError::InvalidDirectory(
+                root_dir.to_str().unwrap().to_string(),
+            ));
         }
 
-        let path: PathBuf = jar_path.into();
+        let path: PathBuf = jar_path.clone().into();
         let conc = root.join(path.clone());
         if !path.is_relative() || !conc.is_file() {
-            return Err(HandleError::InvalidPathJAR(jar_path.to_string()));
+            return Err(HandleError::InvalidPathJAR(
+                jar_path.to_str().unwrap().to_string(),
+            ));
         }
 
         let data = InstanceData {
