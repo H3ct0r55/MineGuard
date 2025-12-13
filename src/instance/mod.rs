@@ -1,5 +1,2 @@
-mod handle;
-mod types;
-
-pub use handle::InstanceHandle;
-pub use types::{InstanceData, InstanceStatus};
+pub mod handle;
+pub mod types;

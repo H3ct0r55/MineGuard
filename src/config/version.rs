@@ -1,142 +1,23 @@
-use std::{
-    fmt::{self, Display},
-    str::FromStr,
-};
-
-use serde::{Deserialize, Serialize};
-use tokio::sync::watch;
-
-use crate::error::VersionError;
-
-/// Identifies the type of Minecraft distribution supported by the configuration.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
-pub enum MinecraftType {
-    Vanilla,
-}
-
-/// Semantic release version parsed from strings like `1.20.4`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct Version {
-    pub major: u32,
-    pub minor: u32,
-    pub patch: u32,
+    major: u32,
+    minor: u32,
+    patch: u32,
 }
 
-/// Snapshot version parsed from strings like `23w13b`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
-pub struct Snapshot {
-    pub year: u32,
-    pub week: u32,
-    pub build: char,
-}
-
-/// Enum covering both release and snapshot Minecraft version formats.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub enum MinecraftVersion {
+    Unknown,
     Release(Version),
-    Snapshot(Snapshot),
+    #[cfg(feature = "version-custom")]
+    Custom(String),
 }
 
-impl Display for Version {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
-    }
-}
-
-impl Display for Snapshot {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}w{:02}{}", self.year, self.week, self.build)
-    }
-}
-
-impl Display for MinecraftVersion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MinecraftVersion::Release(version) => write!(f, "{}", version.to_string()),
-            MinecraftVersion::Snapshot(snapshot) => write!(f, "{}", snapshot.to_string()),
-        }
-    }
-}
-
-impl FromStr for Version {
-    type Err = VersionError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut split = s.split('.');
-
-        let major_str = split.next().ok_or(VersionError::MissingMajor)?;
-        let minor_str = split.next().ok_or(VersionError::MissingMinor)?;
-        let patch_str = split.next().ok_or(VersionError::MissingPatch)?;
-
-        if split.next().is_some() {
-            return Err(VersionError::ExtraComponents);
-        }
-
-        let major = major_str
-            .parse::<u32>()
-            .map_err(|_| VersionError::IncorrectMajor(major_str.to_string()))?;
-
-        let minor = minor_str
-            .parse::<u32>()
-            .map_err(|_| VersionError::IncorrectMinor(minor_str.to_string()))?;
-
-        let patch = patch_str
-            .parse::<u32>()
-            .map_err(|_| VersionError::IncorrectPatch(patch_str.to_string()))?;
-
-        Ok(Self {
-            major,
-            minor,
-            patch,
-        })
-    }
-}
-
-impl FromStr for Snapshot {
-    type Err = VersionError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (year_str, rest) = s
-            .split_once('w')
-            .ok_or(VersionError::InvalidSnapshotFormat)?;
-
-        if rest.len() < 3 {
-            return Err(VersionError::InvalidSnapshotFormat);
-        }
-
-        let week_str = &rest[..2];
-        let build_str = &rest[2..];
-
-        let year = year_str
-            .parse::<u32>()
-            .map_err(|_| VersionError::IncorrectYear(year_str.to_string()))?;
-
-        let week = week_str
-            .parse::<u32>()
-            .map_err(|_| VersionError::IncorrectWeek(week_str.to_string()))?;
-
-        let build = if build_str.len() == 1 {
-            build_str.chars().next().unwrap()
-        } else {
-            return Err(VersionError::IncorrectBuild(build_str.to_string()));
-        };
-
-        Ok(Self { year, week, build })
-    }
-}
-
-impl FromStr for MinecraftVersion {
-    type Err = VersionError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(ver) = Version::from_str(s) {
-            return Ok(MinecraftVersion::Release(ver));
-        }
-
-        if let Ok(snap) = Snapshot::from_str(s) {
-            return Ok(MinecraftVersion::Snapshot(snap));
-        }
-
-        Err(VersionError::UnknownVersionFormat(s.to_string()))
-    }
+#[derive(Debug, Clone)]
+pub enum MinecraftType {
+    Unknown,
+    #[cfg(feature = "mc-vanilla")]
+    Vanilla,
+    #[cfg(feature = "mc-paper")]
+    Paper,
 }

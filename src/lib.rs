@@ -1,7 +1,6 @@
-pub mod config;
+mod config;
+mod instance;
+mod server;
+
+pub use server::*;
 pub mod error;
-pub mod instance;
-pub mod manifests;
-pub mod parser;
-pub mod server;
-pub mod utils;
